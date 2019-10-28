@@ -57,13 +57,6 @@ drive = GoogleDrive(gauth)
 
 cd '/content/gdrive/My Drive/'
 
-# Commented out IPython magic to ensure Python compatibility.
-# Load the TensorBoard notebook extension
-# %load_ext tensorboard
-
-import datetime
-!rm -rf ./logs/
-
 """*Create the paths to the directories of the images, which are stored in their own folders in My Drive*"""
 
 deer_train_path= '/content/gdrive/My Drive/Independent_Study/deer'
@@ -148,9 +141,6 @@ print(y_test.shape)
 x_train = (x_train/127.5)-1
 x_test = (x_test/127.5) -1
 
-datagen = ImageDataGenerator()
-it = datagen.flow(x_train, y_train)
-
 """*Importing the libararies needed to create the CNN architecture*"""
 
 from keras.layers import *
@@ -163,6 +153,16 @@ from keras.metrics import categorical_crossentropy
 from keras.models import Model
 from keras.layers import GlobalAveragePooling2D
 from keras.callbacks import TensorBoard
+
+"""*   Importing the backend of Keras so the previous tensorboard session can be cleared from the previous model.
+*   Initializing and loading the tensorboard extension to start a tensorboard session that is recorded in a logs folder
+"""
+
+# Commented out IPython magic to ensure Python compatibility.
+# %load_ext tensorboard
+
+import datetime
+!rm -rf ./logs/
 
 import keras.backend as K
 K.clear_session()
@@ -190,7 +190,7 @@ model.add(prediction_layer)
 """Compile the model"""
 
 base_learning_rate = 0.01 #0.003 , 0.001. 0.0003
-model.compile(loss='binary_crossentropy',optimizer='adagrad',metrics=['accuracy'])
+model.compile(loss='binary_crossentropy',optimizer='adam',metrics=['accuracy'])
 
 """*Printing the model to see what the model actually looks like*"""
 
@@ -198,29 +198,30 @@ model.summary()
 
 """*Training the model with 10 epochs at 32 images per batch. This means that the model will run through all the data 10 times in segments of 32 images at a time, with x_train being the training set and y_test being the validation set.*"""
 
-initial_epochs = 50
+initial_epochs = 20
 batch_for_training = 32
 log_dir="logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-tensorBoard = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=0, write_graph=True)
+tensorBoard = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=0, write_graph=True,write_grads=True,write_images=True)
 
-#history_one = model.fit(x_train, y_train, validation_data=(x_test, y_test), 
- #     epochs=initial_epochs, batch_size=batch_for_training, callbacks=[tensorBoard])
+history_one = model.fit(x_train, y_train, validation_data=(x_test, y_test), 
+     epochs=initial_epochs, batch_size=batch_for_training, callbacks=[tensorBoard])
 
-history_two = model.fit_generator(it,  validation_data=(x_test, y_test), 
-      epochs=initial_epochs, batch_size=batch_for_training, callbacks=[tensorBoard])
+"""Calling the tensorboard to visualize the data and model"""
 
 # Commented out IPython magic to ensure Python compatibility.
 # %tensorboard --logdir logs
 
-!kill 653
+"""Stopping the tensorboard from running"""
+
+!kill 1888
 
 """*Showing a graph of the training loss and the validation loss on a loss vs epoch graph*"""
 
 loss_loss = history_one.history['loss']
 val_loss = history_one.history['val_loss']
-plt.plot(loss_loss)
-plt.plot(val_loss)
+plt.plot(loss_loss,'o')
+plt.plot(val_loss,'o')
 plt.ylabel('Loss')
 plt.xlabel('Epoch')
 plt.legend(['Training Loss','Validation Loss'],loc='upper right')
@@ -245,11 +246,3 @@ tf.keras.models.save_model(model, keras_file)
 converter = tf.lite.TFLiteConverter.from_keras_model_file(keras_file)
 tflite_model = converter.convert()
 open("/content/gdrive/My Drive/converted_model_nonMobileNet.tflite", "wb").write(tflite_model)
-
-"""*   Add learning rate decay -> slows down learning rate over time going over epochs (not too big of a deal bc Adam optimizer already does this)
-*   Image amplification -> twists/rotate image for more training data,definitely look into soon to amplify amount of data
-*   Generator - from Chimpface, yield, function as an active list -> depends on how much RAM we have... genertor uses virtual arrays in batches to loop through large data sets. Probably more of a longer term solution when we have big data sets.
-*   Add learning rate decay -> slows down learning rate over time going voer epochs (not too big of a deal bc Adam optimizer already does this)
-*   Wild me data boxing -> currently using Labelbox, keep going
-*  Semantic segmentation architectures if boxing-facial recognitionrecognizing a face in an image -> waaayyyyy long term; rather than boxing an image, it outlines the image to count things (ask Chad to show the 'weird luke skywalker fire hydrant' video)
-"""
